@@ -1,13 +1,14 @@
 # Cisco Packet Tracer Labs: Router & Switch Configuration
 
-Two network installation labs built and tested in **Cisco Packet Tracer** on Cisco ISR 4300-series routers and Catalyst switches. They cover IPv4/IPv6 addressing, SSH hardening, static routing and a backup (floating) default route, all configured from the IOS command line.
+Three network installation labs built and tested in **Cisco Packet Tracer** on Cisco ISR routers, Catalyst switches and a Linksys wireless router. They cover IPv4/IPv6 addressing, SSH hardening, static and summarised routing, a backup (floating) default route, and a WPA2 wireless LAN. The routers and switches are configured from the IOS command line, and the wireless router through its web GUI.
 
-Completed for *ICTTEN312 Install telecommunications network equipment* (Advanced Diploma of Electronics and Communications Engineering, RMIT, 2026).
+Completed for *ICTTEN312 Install telecommunications network equipment* (Labs 1–2) and *UEEDV0010 Select and arrange equipment for wireless communication networks* (Lab 3), Advanced Diploma of Electronics and Communications Engineering, RMIT, 2026.
 
 | Lab | Topics | Packet Tracer file |
 |---|---|---|
-| [1. Router setup, SSH and IPv6](#lab-1--router-setup-ssh-and-ipv6) | Dual-stack addressing, password policy, SSH-only VTY access, IPv6 routing | [`lab1-ssh-ipv6.pkt`](lab1-router-ssh-ipv6/lab1-ssh-ipv6.pkt) |
-| [2. Static and floating routes](#lab-2--static-and-floating-static-routes) | Static routes, default routes, floating static backup route, traceroute | [`lab2-static-routing.pkt`](lab2-static-floating-routes/lab2-static-routing.pkt) |
+| [1. Router setup, SSH and IPv6](#lab-1-router-setup-ssh-and-ipv6) | Dual-stack addressing, password policy, SSH-only VTY access, IPv6 routing | [`lab1-ssh-ipv6.pkt`](lab1-router-ssh-ipv6/lab1-ssh-ipv6.pkt) |
+| [2. Static and floating routes](#lab-2-static-and-floating-static-routes) | Static routes, default routes, floating static backup route, traceroute | [`lab2-static-routing.pkt`](lab2-static-floating-routes/lab2-static-routing.pkt) |
+| [3. Wireless campus-to-ISP network](#lab-3-wireless-campus-to-isp-network) | WRT300N wireless router, WPA2-AES, DHCP, summarised static route, ISP link design | [`lab3-wireless-network.pkt`](lab3-wireless-network/lab3-wireless-network.pkt) |
 
 Open the `.pkt` files in Cisco Packet Tracer 8.x.
 
@@ -98,11 +99,66 @@ R1's routing table shows the connected networks, the static route to `10.2.0.0/2
 
 ---
 
+## Lab 3: Wireless campus-to-ISP network
+
+A campus network (RMIT) with wired hosts and a wireless LAN, connected through two Cisco 2911 routers to an ISP network (Telstra).
+
+![Topology](lab3-wireless-network/docs/topology.png)
+
+### Addressing
+
+| Device | Interface | IPv4 | Gateway |
+|---|---|---|---|
+| Telstra router | G0/1 / G0/0 | 20.20.20.1 / 10.10.10.1 | – |
+| RMIT router | G0/1 / G0/0 | 192.168.1.1 / 10.10.10.2 | – |
+| RMIT wireless router (WRT300N) | Internet / LAN | 192.168.1.4 / 192.168.2.1 | 192.168.1.1 |
+| Telstra workstation / server | NIC | 20.20.20.2 / 20.20.20.3 | 20.20.20.1 |
+| RMIT workstation / server | NIC | 192.168.1.2 / 192.168.1.3 | 192.168.1.1 |
+| RMIT wireless workstation | NIC | DHCP from the WRT300N | – |
+
+All subnets are /24.
+
+### What I configured
+
+- **Both 2911 routers:** hostnames (`Telstra_Router`, `RMIT_Router`), `no ip domain-lookup`, and interface addressing.
+- **WRT300N wireless router (web GUI):** SSID `RMIT Wireless Router`, WAN and LAN addressing, DHCP for wireless clients, and **WPA2-Personal with AES** encryption.
+- **Routing:**
+
+```
+! Telstra: one summarised route covers both RMIT networks (192.168.1.0 and 192.168.2.0)
+ip route 192.168.0.0 255.255.252.0 10.10.10.2
+
+! RMIT: default route towards the ISP
+ip route 0.0.0.0 0.0.0.0 10.10.10.1
+```
+
+The `/22` summary (192.168.0.0–192.168.3.255) covers the wired LAN and the wireless LAN in a single route on the ISP router.
+
+| Wireless SSID | WPA2-AES security |
+|---|---|
+| ![SSID](lab3-wireless-network/docs/wireless-ssid.png) | ![WPA2](lab3-wireless-network/docs/wireless-security.png) |
+
+### Verification
+
+I sent pings from the **wireless workstation** to the wireless router's LAN interface, to the RMIT router's G0/1, and across both routers to the **Telstra server (20.20.20.3)**. All three had 0% loss.
+
+![Ping to Telstra server](lab3-wireless-network/docs/ping-telstra-server.png)
+
+### Design decisions
+
+- **Router–ISP link (5 km):** single-mode fibre. Its 9 µm core carries one light path, so it doesn't suffer the modal distortion that limits copper and multimode fibre over that distance.
+- **Switch to wireless router:** Cat 5 cable through the ceiling on J-hooks and down a service pole to the middle of the room. That keeps it inside the 100 m Ethernet limit and off the floor, so it's not a trip hazard.
+- **Rack earthing:** gives fault current and static a safe path to ground. That protects people from shock and the equipment from surges.
+- **Wireless router comparison:** the Cisco WRT300N is 802.11n, 2.4 GHz only, with Fast Ethernet ports. The TP-Link Archer AX12 is Wi-Fi 6, dual-band (5 GHz), with WPA3 and gigabit ports, so it's better suited to a modern deployment.
+
+---
+
 ## Skills shown
 
 - Building a topology from a plan, with correct cabling between routers, switches and PCs.
 - Cisco IOS CLI: interface configuration, IPv4 and IPv6 dual-stack, saving configs.
 - Device hardening: password policy, encrypted passwords, SSH-only remote access, idle timeouts.
-- Static, default and floating static routing, and administrative distance.
+- Static, default, summarised and floating static routing, and administrative distance.
+- Wireless LAN setup: SSID, DHCP, WPA2-AES security, and choosing equipment and cabling (single-mode fibre, Cat 5 limits).
 - Checking the network with `show ip route`, `show ip interface brief`, `show version`, ping, traceroute and SSH.
 - Working to WHS requirements for network installation: hazard identification, ESD control, cable management.
